@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Wolf-Music</title>
+<style>
+  body {
+    background-color: #000;
+    color: #00ff00;
+    font-family: 'Orbitron', sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  h1 { text-align: center; margin: 15px 0; font-size: 1.8em; }
+
+  .music-list { padding: 10px; flex: 1; overflow-y: auto; position: relative; z-index: 1; }
+
+  .music-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #111;
+    margin: 8px 0;
+    padding: 8px;
+    border: 2px solid #00ff00;
+    border-radius: 10px;
+    box-shadow: 0 0 8px #00ff00;
+  }
+
+  .music-info { 
+    flex: 1; 
+    margin-left: 8px; 
+    font-size: 0.85em; 
+    display: flex;
+    align-items: center;
+  }
+
+  .music-info img {
+    width: 50px;   /* Taille doublée */
+    height: 50px;
+    border-radius: 4px;
+    object-fit: cover;
+    margin-right: 8px;
+    flex-shrink: 0; 
+  }
+
+  button {
+    background: #000;
+    color: #00ff00;
+    border: 2px solid #00ff00;
+    border-radius: 6px;
+    padding: 5px 8px;
+    margin-left: 3px;
+    font-size: 0.75em;
+    cursor: pointer;
+    position: relative;
+  }
+
+  button:hover { background: #00ff00; color: #000; }
+
+  #admin-btn {
+    position: fixed;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 8px 12px;
+    font-size: 0.9em;
+    z-index: 1;
+  }
+
+  #admin-page { display: none; padding: 15px; }
+
+  input, label {
+    margin: 5px 0;
+    padding: 5px;
+    width: 100%;
+    border-radius: 6px;
+    border: 2px solid #00ff00;
+    background: #111;
+    color: #00ff00;
+    font-size: 0.9em;
+  }
+
+  .admin-music-item {
+    background: #222;
+    padding: 5px;
+    margin: 5px 0;
+    border: 1px solid #00ff00;
+    border-radius: 6px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85em;
+    align-items: center;
+  }
+
+  /* Vinyle qui tourne */
+  .vinyle {
+    width: 20px;
+    height: 20px;
+    border: 3px solid #00ff00;
+    border-radius: 50%;
+    margin-right: 5px;
+    animation: spin 1s linear infinite;
+    display: inline-block;
+    vertical-align: middle;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  /* Étoiles scintillantes */
+  .star {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    background: #00ff00;
+    border-radius: 50%;
+    opacity: 0.8;
+    animation: twinkle 2s infinite;
+    z-index: 0;
+  }
+
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.2; }
+    50% { opacity: 1; }
+  }
+
+  ::-webkit-scrollbar {
+    width: 5px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #00ff00;
+    border-radius: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #111;
+  }
+</style>
+</head>
+<body>
+<h1>Wolf-Music</h1>
+
+<div id="music-list" class="music-list"></div>
+
+<button id="admin-btn">ADMIN</button>
+
+<div id="admin-page">
+  <h2>Page Administrateur</h2>
+  <input type="text" id="title" placeholder="Titre de la musique"><br>
+  <input type="text" id="artist" placeholder="Nom de l'artiste (optionnel)"><br>
+  <input type="file" id="audio-file" accept="audio/*"><br>
+  <input type="file" id="cover-file" accept="image/*"><br>
+  <button id="add-music-btn">Ajouter la musique</button>
+  <button id="back-btn">Retour</button>
+  <h3>Musique existantes :</h3>
+  <div id="admin-music-list"></div>
+</div>
+
+<script>
+const adminCode = "1313";
+let musicData = JSON.parse(localStorage.getItem("musicData") || "[]");
+let currentAudio = null;
+let currentVinyle = null;
+
+// Générer étoiles
+for(let i=0;i<50;i++){
+  const star = document.createElement('div');
+  star.className = 'star';
+  star.style.top = Math.random()*100 + '%';
+  star.style.left = Math.random()*100 + '%';
+  star.style.animationDuration = 1 + Math.random()*3 + 's';
+  star.style.width = star.style.height = 1 + Math.random()*2 + 'px';
+  document.body.appendChild(star);
+}
+
+// Affichage pour utilisateurs
+function displayMusic() {
+  const list = document.getElementById("music-list");
+  list.innerHTML = "";
+  musicData.forEach((music, index) => {
+    const item = document.createElement("div");
+    item.className = "music-item";
+
+    const info = document.createElement("div");
+    info.className = "music-info";
+
+    const cover = document.createElement("img");
+    cover.src = music.cover || "";
+    info.appendChild(cover);
+
+    const text = document.createElement("div");
+    text.innerHTML = `<b>${music.title}</b><br>${music.artist || ""}<br>Écoutes: ${music.plays} | Likes: ${music.likes}`;
+    info.appendChild(text);
+
+    item.appendChild(info);
+
+    const playBtn = document.createElement("button");
+    playBtn.innerHTML = 'PLAY';
+    playBtn.onclick = () => {
+      if(currentAudio) currentAudio.pause();
+      currentAudio = new Audio(music.audio);
+      currentAudio.play();
+      music.plays++;
+      localStorage.setItem("musicData", JSON.stringify(musicData));
+      displayMusic();
+      playBtn.innerHTML = '<span class="vinyle"></span>PLAY';
+    };
+    item.appendChild(playBtn);
+
+    const pauseBtn = document.createElement("button");
+    pauseBtn.textContent = "PAUSE";
+    pauseBtn.onclick = () => { 
+      if(currentAudio) currentAudio.pause();
+      playBtn.innerHTML = 'PLAY';
+    };
+    item.appendChild(pauseBtn);
+
+    const likeBtn = document.createElement("button");
+    likeBtn.textContent = "LIKE";
+    likeBtn.onclick = () => {
+      music.likes++;
+      localStorage.setItem("musicData", JSON.stringify(musicData));
+      displayMusic();
+    };
+    item.appendChild(likeBtn);
+
+    const downloadBtn = document.createElement("button");
+    downloadBtn.textContent = "TÉLÉCHARGER";
+    downloadBtn.onclick = () => {
+      const link = document.createElement("a");
+      link.href = music.audio;
+      link.download = music.title;
+      link.click();
+    };
+    item.appendChild(downloadBtn);
+
+    list.appendChild(item);
+  });
+}
+
+// Affichage admin
+function displayAdminMusic() {
+  const adminList = document.getElementById("admin-music-list");
+  adminList.innerHTML = "";
+  musicData.forEach((music, index) => {
+    const item = document.createElement("div");
+    item.className = "admin-music-item";
+    item.innerHTML = `<b>${music.title}</b> ${music.artist ? "- " + music.artist : ""}`;
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.textContent = "Supprimer";
+    deleteBtn.onclick = () => {
+      if(confirm(`Supprimer ${music.title} ?`)){
+        musicData.splice(index, 1);
+        localStorage.setItem("musicData", JSON.stringify(musicData));
+        displayMusic();
+        displayAdminMusic();
+      }
+    };
+    item.appendChild(deleteBtn);
+    adminList.appendChild(item);
+  });
+}
+
+displayMusic();
+
+// Admin
+const adminBtn = document.getElementById("admin-btn");
+const adminPage = document.getElementById("admin-page");
+
+adminBtn.onclick = () => {
+  const code = prompt("Entrez le code admin à 4 chiffres:");
+  if(code === adminCode){
+    adminPage.style.display = "block";
+    document.getElementById("music-list").style.display = "none";
+    adminBtn.style.display = "none";
+    displayAdminMusic();
+  } else {
+    alert("Code incorrect");
+  }
+};
+
+// Ajouter musique
+document.getElementById("add-music-btn").onclick = () => {
+  const title = document.getElementById("title").value;
+  const artist = document.getElementById("artist").value;
+  const audioFile = document.getElementById("audio-file").files[0];
+  const coverFile = document.getElementById("cover-file").files[0];
+
+  if(!title || !audioFile) { alert("Titre et fichier audio requis"); return; }
+
+  const readerAudio = new FileReader();
+  readerAudio.onload = (e) => {
+    const audioData = e.target.result;
+    if(coverFile){
+      const readerCover = new FileReader();
+      readerCover.onload = (ev) => {
+        const coverData = ev.target.result;
+        musicData.push({title, artist, audio: audioData, cover: coverData, likes:0, plays:0});
+        localStorage.setItem("musicData", JSON.stringify(musicData));
+        alert("Musique ajoutée !");
+        resetInputs();
+        displayMusic();
+        displayAdminMusic();
+      };
+      readerCover.readAsDataURL(coverFile);
+    } else {
+      musicData.push({title, artist, audio: audioData, cover:"", likes:0, plays:0});
+      localStorage.setItem("musicData", JSON.stringify(musicData));
+      alert("Musique ajoutée !");
+      resetInputs();
+      displayMusic();
+      displayAdminMusic();
+    }
+  };
+  readerAudio.readAsDataURL(audioFile);
+};
+
+function resetInputs(){
+  document.getElementById("title").value="";
+  document.getElementById("artist").value="";
+  document.getElementById("audio-file").value="";
+  document.getElementById("cover-file").value="";
+}
+
+// Retour admin
+document.getElementById("back-btn").onclick = () => {
+  adminPage.style.display = "none";
+  document.getElementById("music-list").style.display = "block";
+  adminBtn.style.display = "block";
+  displayMusic();
+};
+</script>
+</body>
+</html>
